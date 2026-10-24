@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+  <title>BookNest | Todo App</title>
+</head>
+
+<body class="min-h-screen bg-slate-100 text-slate-800 p-5">
+
+  <main class="max-w-xl mx-auto mt-10">
+
+    <header class="text-center mb-8">
+      <p class="text-emerald-600 font-semibold tracking-widest text-sm">
+        BOOKNEST PRODUCTIVITY
+      </p>
+
+      <h1 class="text-4xl font-bold mt-3">
+        My Todo App
+      </h1>
+
+      <p class="text-slate-500 mt-3">
+        Organize your day, one task at a time.
+      </p>
+    </header>
+
+    <section class="bg-white p-5 sm:p-7 rounded-2xl shadow-lg">
+
+      <form id="taskform" class="flex flex-col sm:flex-row gap-3">
+        <input
+          id="taskinput"
+          type="text"
+          placeholder="Enter your task..."
+          maxlength="200"
+          autocomplete="off"
+          class="flex-1 min-w-0 border border-slate-300 rounded-xl px-4 py-3 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+        >
+
+        <button
+          id="addbtn"
+          type="submit"
+          class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-5 py-3 rounded-xl transition"
+        >
+          + Add Task
+        </button>
+      </form>
+
+      <div class="grid grid-cols-2 gap-3 mt-6">
+        <div class="bg-emerald-50 p-4 rounded-xl">
+          <p class="text-sm text-slate-500">Total Tasks</p>
+          <p id="totalcount" class="text-2xl font-bold text-emerald-700">0</p>
+        </div>
+
+        <div class="bg-blue-50 p-4 rounded-xl">
+          <p class="text-sm text-slate-500">Completed</p>
+          <p id="completedcount" class="text-2xl font-bold text-blue-700">0</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mt-7 mb-4">
+        <h2 class="text-xl font-bold">My Tasks</h2>
+
+        <button
+          id="resetbtn"
+          type="button"
+          class="text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg text-sm font-semibold"
+        >
+          Reset All
+        </button>
+      </div>
+
+      <ul id="todolist" class="space-y-3"></ul>
+
+      <p id="emptymsg" class="text-center text-slate-400 py-8">
+        No tasks yet. Add your first task!
+      </p>
+
+      <p id="message" role="status" class="text-sm mt-3 text-red-600"></p>
+
+    </section>
+
+    <footer class="text-center text-slate-400 text-sm mt-8">
+      Made with BookNest ✨
+    </footer>
+
+  </main>
+
+  <script>
+    const taskinput = document.getElementById("taskinput");
+    const taskform = document.getElementById("taskform");
+    const todolist = document.getElementById("todolist");
+    const resetbtn = document.getElementById("resetbtn");
+    const totalcount = document.getElementById("totalcount");
+    const completedcount = document.getElementById("completedcount");
+    const emptymsg = document.getElementById("emptymsg");
+    const message = document.getElementById("message");
+
+    let todos = [];
+
+    // load saved tasks
+    try {
+      const savedTodos = localStorage.getItem("todos");
+      if (savedTodos) {
+        const parsedTodos = JSON.parse(savedTodos);
+
+        if (Array.isArray(parsedTodos)) {
+          todos = parsedTodos
+            .filter(todo => todo && typeof todo.title === "string")
+            .map(todo => ({
+              title: todo.title,
+              completed: Boolean(todo.completed)
+            }));
+        }
+      }
+    } catch (error) {
+      todos = [];
+    }
+
+    // Support old tasks saved with the spelling "tittle"
+    todos = todos.map(todo => ({
+      title: todo.title || todo.tittle || "",
+      completed: Boolean(todo.completed)
+    }));
+
+    function savetodos() {
+      try {
+        localStorage.setItem("todos", JSON.stringify(todos));
+        return true;
+      } catch (error) {
+        message.textContent = "Could not save tasks in this browser.";
+        return false;
+      }
+    }
+
+    function rendertodos() {
+      todolist.innerHTML = "";
+
+      todos.forEach((todo, index) => {
+        const li = document.createElement("li");
+        li.className =
+          "flex items-center gap-3 bg-slate-50 border border-slate-200 p-3 rounded-xl";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = todo.completed;
+        checkbox.className = "w-5 h-5 accent-emerald-600 cursor-pointer";
+        checkbox.setAttribute("aria-label", "Mark task complete");
+
+        checkbox.addEventListener("change", () => {
+          todos[index].completed = checkbox.checked;
+          savetodos();
+          rendertodos();
+        });
+
+        const span = document.createElement("span");
+        span.textContent = todo.title;
+        span.className = "flex-1 break-words";
+
+        if (todo.completed) {
+          span.classList.add("line-through", "text-slate-400");
+        }
+
+        const deletebtn = document.createElement("button");
+        deletebtn.type = "button";
+        deletebtn.textContent = "Delete";
+        deletebtn.className =
+          "text-red-600 hover:bg-red-100 px-3 py-2 rounded-lg text-sm font-semibold";
+
+        deletebtn.addEventListener("click", () => {
+          todos.splice(index, 1);
+          savetodos();
+          rendertodos();
+        });
+
+        li.append(checkbox, span, deletebtn);
+        todolist.appendChild(li);
+      });
+
+      totalcount.textContent = todos.length;
+      completedcount.textContent =
+        todos.filter(todo => todo.completed).length;
+
+      emptymsg.hidden = todos.length > 0;
+    }
+
+    // Add a task
+    taskform.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const task = taskinput.value.trim();
+
+      if (!task) {
+        message.textContent = "Please enter a task first.";
+        taskinput.focus();
+        return;
+      }
+
+      message.textContent = "";
+
+      todos.push({
+        title: task,
+        completed: false
+      });
+
+      savetodos();
+      rendertodos();
+
+      taskinput.value = "";
+      taskinput.focus();
+    });
+
+    // Delete all tasks
+    resetbtn.addEventListener("click", () => {
+      if (todos.length === 0) return;
+
+      const confirmed = confirm("Are you sure you want to delete all tasks?");
+
+      if (!confirmed) return;
+
+      todos = [];
+      savetodos();
+      rendertodos();
+      message.textContent = "";
+    });
+
+    rendertodos();
+  </script>
+
+</body>
+</html>
